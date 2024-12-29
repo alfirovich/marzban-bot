@@ -359,27 +359,28 @@ UserID: {{ user.id }}
 [% CASE ['user:keys:next', 'user:keys:next:confirm'] %]
 {{ 
     # Variables
-    us = user.services.list_for_api('usi', args.0);
+    usi = user.services.list_for_api('usi', args.0);
 
     # Plugins
     USE date;
 }}
 
 {{ 
-    IF cmd == 'user:keys:next:confirm' && args.1;
+    IF cmd == 'user:keys:next:confirm';
+        us = us.id(args.0)
         ret = us.set("next", args.1);
 }}
 {
     "answerCallbackQuery": {
          "callback_query_id": {{ callback_query.id }},
          "parse_mode":"HTML",
-         "text": "✅ Следующий тариф успешно изменен на {{ service.id(us.next).name }}",
+         "text": "✅ Следующий тариф успешно изменен на {{ service.id(args.1).name }}",
          "show_alert": true
      }
 },
 {
     "shmRedirectCallback": {
-        "callback_data": "user:keys:id {{ us.user_service_id }}"
+        "callback_data": "user:keys:id {{ usi.user_service_id }}"
     }
 }
 {{ STOP }}
@@ -388,8 +389,8 @@ UserID: {{ user.id }}
 {{ TEXT = BLOCK }}
 ℹ️ Смена тарифа произойдет при следующем продлении ключа
 
-<b>Дата след. продления</b>: {{ date.format(us.expire, '%d.%m.%Y') }}
-<b>Текущий тариф</b>: {{ us.name }}
+<b>Дата след. продления</b>: {{ date.format(usi.expire, '%d.%m.%Y') }}
+<b>Текущий тариф</b>: {{ usi.name }}
 {{ END }}
 
 {{ BUTTONS = BLOCK }}
@@ -397,14 +398,14 @@ UserID: {{ user.id }}
         [
             {
                 "text": "{{ item.name }} - {{ item.cost }} руб/мес.",
-                "callback_data": "user:keys:next:confirm {{ us.user_service_id _ ' ' _ item.service_id }}"
+                "callback_data": "user:keys:next:confirm {{ usi.user_service_id _ ' ' _ item.service_id }}"
             }
         ],
     {{ END }}
     [
         {
             "text": "⭕️ Отменить",
-            "callback_data": "user:keys:id {{ us.user_service_id }}"
+            "callback_data": "user:keys:id {{ usi.user_service_id }}"
         }
     ]
 {{ END }}
