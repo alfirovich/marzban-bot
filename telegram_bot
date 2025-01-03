@@ -19,24 +19,34 @@
     botUsername = (getBotUsername || config.bot.botUsername || tpl.settings.username || 'Set token or username in template settings or set username in config.bot.botUsername');
 }}
 
-[% # Check for admin rights from user settings %]
-[% # for use admin menu, set 'isAdmin' = true on user settings %]
-{{ BLOCK checkAdminRights }}
-    {{ IF user.settings.isAdmin != 'true' }}
-        {
-            "answerCallbackQuery": {
-                "callback_query_id": {{ callback_query.id }},
-                "parse_mode":"HTML",
-                "text": "⭕️ Вам запрещён доступ в это меню! UserID: {{ user.user_id }} (( errcode: 502 }}",
-                "show_alert": true
-            }
-        },
-        {
-            "shmRedirectCallback": {
-                "callback_data": "{{ mainMenuCmd }}"
-            }
+{{ MACRO sendError BLOCK }}
+    {
+        "answerCallbackQuery": {
+            "callback_query_id": {{ callback_query.id }},
+            "parse_mode":"HTML",
+            "text": "{{ errtext }}\nUserID: {{ user.user_id }}\n(( errcode: {{ code }} ))",
+            "show_alert": true
         }
+    },
+    {
+        "shmRedirectCallback": {
+            "callback_data": "{{ mainMenuCmd }}"
+        }
+    }
     {{ STOP }}
+{{ END }}
+
+[% # Check for admin rights from user settings %]
+[% # for use admin menu, set role = "admin" or "moderator" %]
+{{ BLOCK checkAdminRights }}
+    {{ IF user.settings.role != "admin" && user.settings.role != "moderator" }}
+        {{ sendError(code=403, errtext='⭕️ Раздел закрыт') }}
+    {{ END }}
+{{ END }}
+
+{{ MACRO checkModeratorRights BLOCK }}
+    {{ IF user.settings.role == "moderator" && user.settings.moderate.$right != 1 }}
+        {{ sendError(code=403, errtext="⭕️ Доступ запрещён!") }}
     {{ END }}
 {{ END }}
 
@@ -123,10 +133,10 @@
 {{ END }}
 
 {{ BUTTONS = BLOCK }}
-    {{ IF user.settings.isAdmin == 'true' }}
+    {{ IF user.settings.role == 'moderator' || user.settings.role == 'admin' }}
         [
             {
-                "text": "👨‍💻 Меню администратора",
+                "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
                 "callback_data": "admin:menu"
             }
         ],
@@ -513,7 +523,7 @@ UserID: {{ user.id }}
 {{ END }}
 
 {{ IF checkNotPaidServices == 1 }}
-    {{ notPaid = user.services.list_for_api('filter', { 'status' => 'NOT PAID' }, 'limit', 1) }}
+    {{ # notPaid = user.services.list_for_api('filter', { 'status' => 'NOT PAID' }, 'limit', 1) }}
     {{ IF ref(notPaid).size == 1 }}
         {
             "answerCallbackQuery": {
@@ -659,7 +669,7 @@ UserID: {{ user.id }}
 
 [% CASE ['admin:menu'] %]
 {{ TEXT = BLOCK }}
-    〠 Меню администратора
+〠 <b>Меню {{ role = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); role; }}</b>
 
 ⭕️ Будьте осторожны с выбором действий!
 {{ END }}
@@ -671,12 +681,14 @@ UserID: {{ user.id }}
             "callback_data": "admin:users:list"
         }
     ],
-    [
-        {
-            "text": "⚙️ Настройки бота",
-            "callback_data": "admin:settings"
-        }
-    ],
+    {{ IF user.settings.role == 'admin' || (user.settings.role == 'moderator' && user.settings.moderate.settings == 1 )}}
+        [
+            {
+                "text": "⚙️ Настройки бота",
+                "callback_data": "admin:settings"
+            }
+        ],
+    {{ END }}
     [
         {
             "text": "🏠 Главное меню",
@@ -688,6 +700,7 @@ UserID: {{ user.id }}
 
 [% CASE ['admin:settings'] %]
 {{ PROCESS checkAdminRights }}
+{{ checkModeratorRights(right="settings") }}
 
 {{ TEXT = BLOCK }}
 <b>Конфигурация бота</b>
@@ -712,7 +725,7 @@ UserID: {{ user.id }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -726,6 +739,8 @@ UserID: {{ user.id }}
 
 [%  #   Изменение конфигураций %]
 [% CASE ['admin:settings:change'] %]
+{{ PROCESS checkAdminRights }}
+
 {{ IF args.0 == 'notpaid' }}
 {{      
         IF checkNotPaidServices == 0;
@@ -812,7 +827,7 @@ UserID: {{ user.id }}
     {{ END }}
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -886,7 +901,7 @@ Telegram: {{ userData.settings.telegram.login }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -900,6 +915,8 @@ Telegram: {{ userData.settings.telegram.login }}
 
 [% CASE ['admin:users:block'] %]
 {{ PROCESS checkAdminRights }}
+{{ checkModeratorRights(right="blockUser") }}
+
 {{
     # Arguments 
     #   0. - id of user
@@ -925,6 +942,7 @@ Telegram: {{ userData.settings.telegram.login }}
 
 
 [% CASE ['admin:users:id:subs'] %]
+{{ checkModeratorRights(right="listSubs") }}
 {{
     limit = 7;
     last_offset = (args.1 || 0);
@@ -951,7 +969,7 @@ Telegram: {{ userData.settings.telegram.login }}
         [
             {
                 "text": "{{ status; item.user_service_id _' - '_ item.name  }}",
-                "callback_data": "admin:subs:id {{ item.user_service_id  _' '_ last_offset _' '_ offset}}"
+                "callback_data": "admin:subs:id {{ item.user_service_id _ ' ' _ item.user_id }}"
             }
         ],
     {{ END }}
@@ -991,7 +1009,7 @@ Telegram: {{ userData.settings.telegram.login }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         }
     ]
@@ -1000,6 +1018,7 @@ Telegram: {{ userData.settings.telegram.login }}
 
 
 [% CASE ['admin:subs:add'] %]
+{{ checkModeratorRights(right="addSubs") }}
 {{
     # Variables
     userData = user.id(args.0);
@@ -1035,6 +1054,7 @@ Telegram: {{ userData.settings.telegram.login }}
 
 
 [% CASE ['admin:subs:add:free'] %]
+{{ checkModeratorRights(right="addFreeSubs") }}
 {{
     # Variables
     userData = user.id(args.0);
@@ -1100,15 +1120,17 @@ Telegram: {{ userData.settings.telegram.login }}
 
 
 [% CASE ['admin:subs:id'] %]
+{{ checkModeratorRights(right="listSubs") }}
 {{
     # Arguments:
         # 0 - ID of user service id 
+        # 1 - ID of user
     # Variables:
-    userService = ref(us.list_for_api('admin', 1, 'filter', {"user_service_id" = args.0})).first;
-    userData = user.id(userService.user_id);
+    userData = user.id(args.1);
+    userService = userData.us.id(args.0);
     userServiceData = service.id(userService.service_id);
     userServiceNext = service.id(userService.next);
-    userSubUrl = userData.storage.read('name', 'vpn_mrzb_'_ userService.user_service_id).subscription_url;
+    userSubUrl = (userData.storage.read('name', 'vpn_mrzb_'_ userService.user_service_id).subscription_url || "https://notfound.com");
 }}
 {{ TEXT = BLOCK }}
 🔐 Подписка {{ userServiceData.name }} пользователя {{ userData.full_name }} ({{ userData.user_id }})
@@ -1175,12 +1197,12 @@ ID списания: {{ userService.withdraw_id }}
     [
         {
             "text": "⬅️ Назад",
-            "callback_data": "admin:users:id:subs {{ userData.user_id _' '_ args.1 }}"
+            "callback_data": "admin:users:id:subs {{ userData.user_id }}"
         }
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -1195,6 +1217,7 @@ ID списания: {{ userService.withdraw_id }}
 [% ####### CHANGE CURRENT PLAN FOR SUBSCRIPTION ###### %]
 
 [% CASE ['admin:subs:change:current'] %]
+{{ checkModeratorRights(right="changeSubs") }}
 {{
     userService = ref(us.list_for_api('admin', 1, 'filter', {"user_service_id" = args.0})).first;
     userData = user.id(userService.user_id);
@@ -1222,7 +1245,7 @@ ID списания: {{ userService.withdraw_id }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -1260,10 +1283,10 @@ ID списания: {{ userService.withdraw_id }}
 }
 {{ ret = userData.us.id(data.user_service_id).change('service_id' = nextService) }}
 
+
 [% ####### Change next plan for subscription ##### %]
-
-
 [% CASE ['admin:subs:change:next'] %]
+{{ checkModeratorRights(right="changeSubs") }}
 {{
     userService = ref(us.list_for_api('admin', 1, 'filter', {"user_service_id" = args.0})).first;
     userData = user.id(userService.user_id);
@@ -1295,7 +1318,7 @@ ID списания: {{ userService.withdraw_id }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -1336,6 +1359,7 @@ ID списания: {{ userService.withdraw_id }}
 
 [% CASE ['admin:subs:change:status'] %]
 {{ PROCESS checkAdminRights }}
+{{ checkModeratorRights(right="changeSubs") }}
 {{
     data = ref(us.list_for_api('admin', 1, 'filter', {"user_service_id" = args.0})).first;
     userData = user.id(data.user_id);
@@ -1363,6 +1387,7 @@ ID списания: {{ userService.withdraw_id }}
 
 [% CASE ['admin:subs:delete'] %]
 {{ PROCESS checkAdminRights }}
+{{ checkModeratorRights(right="deleteSubs") }}
 {{
     data = ref(us.list_for_api('admin', 1, 'filter', {"user_service_id" = args.0})).first;
     userData = user.id(data.user_id);
@@ -1387,6 +1412,7 @@ ID списания: {{ userService.withdraw_id }}
 
 
 [% CASE ['admin:users:id:pays'] %]
+{{ checkModeratorRights(right="listPays") }}
 {{
     limit = 5;
     offset = args.1 || 0;
@@ -1437,7 +1463,7 @@ ID списания: {{ userService.withdraw_id }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -1450,6 +1476,7 @@ ID списания: {{ userService.withdraw_id }}
 
 
 [% CASE ['admin:pays:id'] %]
+{{ checkModeratorRights(right="listPays") }}
 {{
     userPay = ref(pay.list_for_api('admin', 1, 'filter', {"id" = args.0})).first;
     payData = userPay.comment.object;
@@ -1505,7 +1532,7 @@ ID кошелька: {{ payMethod.account_number }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -1518,6 +1545,7 @@ ID кошелька: {{ payMethod.account_number }}
 
 
 [% CASE ['admin:pays:add'] %]
+{{ checkModeratorRights(right="addPays") }}
 {{
     userData = user.id(args.0);
 }}
@@ -1564,7 +1592,7 @@ ID кошелька: {{ payMethod.account_number }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -1578,6 +1606,7 @@ ID кошелька: {{ payMethod.account_number }}
 
 [% CASE ['admin:pays:add:confirm'] %]
 {{ PROCESS checkAdminRights }}
+{{ checkModeratorRights(right="addPays") }}
 {{
     userData = user.id(args.0);
     amount = args.1;
@@ -1600,6 +1629,7 @@ ID кошелька: {{ payMethod.account_number }}
 
 
 [% CASE ['admin:users:id:bonuses'] %]
+{{ checkModeratorRights(right="listBonus") }}
 {{
     limit = 5;
     offset = (args.1 || 0);
@@ -1651,7 +1681,7 @@ ID кошелька: {{ payMethod.account_number }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -1664,6 +1694,7 @@ ID кошелька: {{ payMethod.account_number }}
 
 
 [% CASE ['admin:bonuses:id'] %]
+{{ checkModeratorRights(right="listBonus") }}
 {{
     offset = args.1;
     data = ref(bonus.list_for_api('admin', 1, 'limit', limit, 'offset', offset, 'filter', {"id" = args.0})).first;
@@ -1695,7 +1726,7 @@ ID начисления: {{ data.id }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -1708,6 +1739,7 @@ ID начисления: {{ data.id }}
 
 
 [% CASE ['admin:bonuses:add'] %]
+{{ checkModeratorRights(right="addBonus") }}
 {{
     userData = user.id(args.0);
 }}
@@ -1767,7 +1799,7 @@ ID начисления: {{ data.id }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
@@ -1781,6 +1813,7 @@ ID начисления: {{ data.id }}
 
 [% CASE ['admin:bonuses:add:confirm'] %]
 {{ PROCESS checkAdminRights }}
+{{ checkModeratorRights(right="addBonus") }}
 {{
     userData = user.id(args.0);
     amount = args.1;
@@ -1859,7 +1892,7 @@ ID начисления: {{ data.id }}
     ],
     [
         {
-            "text": "👨‍💻 Меню администратора",
+            "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
             "callback_data": "admin:menu"
         },
         {
