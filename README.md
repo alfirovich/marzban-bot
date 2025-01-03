@@ -25,7 +25,7 @@ changeSubs = true | false
 deleteSubs = true | false
 # Просмотр бонусов
 listBonus = true | false
-# Просмотр платедей
+# Просмотр платежей
 listPays = true | false
 # Просмотр ключей
 listSubs = true | false
