@@ -19,6 +19,7 @@
     botUsername = (getBotUsername || config.bot.botUsername || tpl.settings.username || 'Set token or username in template settings or set username in config.bot.botUsername');
 }}
 
+
 {{ MACRO sendError BLOCK }}
     {
         "answerCallbackQuery": {
@@ -36,8 +37,8 @@
     {{ STOP }}
 {{ END }}
 
-[% # Check for admin rights from user settings %]
-[% # for use admin menu, set role = "admin" or "moderator" %]
+[%# Check for admin rights from user settings %]
+[%# for use admin menu, set role = "admin" or "moderator" %]
 {{ BLOCK checkAdminRights }}
     {{ IF user.settings.role != "admin" && user.settings.role != "moderator" }}
         {{ sendError(code=403, errtext='⭕️ Раздел закрыт') }}
@@ -50,7 +51,7 @@
     {{ END }}
 {{ END }}
 
-[% # sendMessage or editMessageText functional %]
+[%# sendMessage or editMessageText functional %]
 {{ MACRO send BLOCK }}
 {{
     messageType =
@@ -64,7 +65,7 @@
 }}
 
 
-        {{ IF (cmd != '/start' && (!edit || edit == 0) && messageType != 'editMessageText' ) }}
+        {{ IF (cmd != '/start' && (!edit || edit == 0) && messageType != 'editMessageText' ) && cmd != 'sendMessage' }}
             {
                 "deleteMessage": { "message_id": {{ message.message_id }} }
             },
@@ -84,7 +85,7 @@
     {
         "{{messageType}}": {
             {{ IF messageType == 'editMessageText'}}
-                "message_id": "{{message.message_id}}",
+                "message_id": "{{ message.message_id }}",
             {{ END }}
             "parse_mode": "HTML",
             "text": "{{ TEXT.replace('\n','\n') }}",
@@ -97,10 +98,24 @@
     }
 {{ END }}
 
-[% # MAIN LOGIC # %]
+{{ MACRO notification BLOCK }}
+    {
+        "sendMessage": {
+            "parse_mode": "HTML",
+            "text": "{{ TEXT.replace('\n','\n') }}",
+            "reply_markup": {
+                "inline_keyboard": [
+                    {{ BUTTONS }}
+                ]
+            }
+        }
+    }
+{{ END }}
+
+[%# MAIN LOGIC # %]
 [% SWITCH cmd %]
 
-[% # Регистрация несуществующих пользователей %]
+[%# Регистрация несуществующих пользователей %]
 [% CASE 'USER_NOT_FOUND' %]
 {
     "shmRegister": {
@@ -111,7 +126,7 @@
 }
 
 
-[%  #   Основное / главное меню бота
+[%#   Основное / главное меню бота
     #   Команды:
     #       /start, start, menu
 
@@ -124,16 +139,17 @@
     #       help            - помощь
 %]
 [% CASE ['/start', 'start', 'menu'] %]
-{{  # variables
+{{   # variables
      messageType = (cmd == 'menu') ? 1 : 0;
 }}
+
 
 {{ TEXT = BLOCK }}
 <b>Меню самого лучшего VPN бота</b>
 {{ END }}
 
 {{ BUTTONS = BLOCK }}
-    {{ IF user.settings.role == 'moderator' || user.settings.role == 'admin' }}
+    {{ IF user.settings.role == 'moderator' || user.settings.role == 'admin'; }}
         [
             {
                 "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
@@ -177,7 +193,7 @@
 {{ send(TEXT=TEXT, BUTTONS=BUTTONS, edit=messageType)  }}
 
 
-[%  #   Личный кабинет %]
+[%#   Личный кабинет %]
 [% CASE ['user:cabinet'] %]
 {{ TEXT = BLOCK }}
 👤 <b>Личный кабинет лучшего VPN бота</b>
@@ -294,10 +310,10 @@ UserID: {{ user.id }}
 }}
 
 {{ TEXT = BLOCK }}
-<b>ID</b>: {{ us.user_service_id }}
-<b>Услуга</b>: {{ us.name }}
+🔑 <b>Ключ #{{ us.user_service_id }} - {{ us.name }}</b>
+
 {{ IF us.expire }}
-<b>Оплачен до</b>: {{ date.format(us.expire, '%d.%m.%Y') }}
+🗓️ <b>Оплачен до</b>: {{ date.format(us.expire, '%d.%m.%Y') }}
 {{ END }}
 <b>Статус</b>: {{ icon }} {{ status }}
 {{ IF us.next != us.service_id && us.next > 0 }}
@@ -460,8 +476,8 @@ UserID: {{ user.id }}
 {{ IF cmd == 'user:keys:delete:confirm' }}
 {
     "shmServiceDelete": {
-        "usi": "{{ us.user_service_id }}",
-        "callback_data": "start",
+        "usi": "{{ args.0 }}",
+        "callback_data": "{{ mainMenuCmd }}",
         "error": "ОШИБКА"
     }
 },
@@ -473,17 +489,17 @@ UserID: {{ user.id }}
          "show_alert": true
      }
 }
-{{ ELSIF us.status == ('NOT PAID' || 'BLOCK') && cmd != 'user:keys:delete:confirm' }}
+{{ ELSIF us.status != 'ACTIVE' && cmd != 'user:keys:delete:confirm' }}
 
 {{ TEXT = BLOCK }}
-🤔 <b>Подтвердите удаление ключа. Ключ нельзя будет восстановить!</b>
+🤔 <b>Подтвердите удаление ключа #{{ args.0 }}. Ключ нельзя будет восстановить!</b>
 {{ END }}
 
 {{ BUTTONS = BLOCK }}
   [
     {
       "text": "🧨 ДА, УДАЛИТЬ! 🔥",
-      "callback_data": "user:keys:delete:confirm {{ us.user_service_id }}"
+      "callback_data": "user:keys:delete:confirm {{ args.0 }}"
     }
   ],
   [
@@ -502,7 +518,7 @@ UserID: {{ user.id }}
 [%  #   Меню покупки / прайс-лист %]
 [% CASE ['price'] %]
 {{ TEXT = BLOCK }}
-☷ <b>Выберите услугу для заказа</b>
+☷ <b>Выберите тарифный план ключа для заказа</b>
 {{ END }}
 
 {{ BUTTONS = BLOCK }}
@@ -523,13 +539,13 @@ UserID: {{ user.id }}
 {{ END }}
 
 {{ IF checkNotPaidServices == 1 }}
-    {{ # notPaid = user.services.list_for_api('filter', { 'status' => 'NOT PAID' }, 'limit', 1) }}
+    {{ notPaid = user.services.list_for_api('filter', { 'status' => 'NOT PAID' }, 'limit', 1) }}
     {{ IF ref(notPaid).size == 1 }}
         {
             "answerCallbackQuery": {
                 "callback_query_id": {{ callback_query.id }},
                 "parse_mode":"HTML",
-                "text": "⛔️ У вас имеется неоплаченный ключ\n(ID: {{ notPaid.user_service_id _' '_ notPaid.name}})!\n Оплатите, либо удалите его для покупки нового.",
+                "text": "⛔️ У вас имеется неоплаченный ключ!\n🔑 #{{ notPaid.user_service_id }} - {{ notPaid.name }}\n Оплатите, либо удалите его для покупки нового.",
                 "show_alert": true
             }
         },
@@ -625,18 +641,72 @@ UserID: {{ user.id }}
 └ Доступно к использованию: {{ user.get_bonus }} ₽
 {{ END }}
 {{ BUTTONS = BLOCK }}
-[
-    {
-        "text": "👤 Пригласить друга",
-        "url": "https://t.me/share/url?url=https://t.me/{{ botUsername }}?start={{ toBase64Url(toQueryString( partner_id = user.id )) }}"
-    }
-],
-[
-    {
-        "text": "🏠 Главное меню",
-        "callback_data": "{{ mainMenuCmd }}"
-    }
-]
+    [
+        {
+            "text": "👤 Пригласить друга",
+            "url": "https://t.me/share/url?url=https://t.me/{{ botUsername }}?start={{ toBase64Url(toQueryString( partner_id = user.id )) }}"
+        }
+    ],
+    [
+        {
+            "text": "📃 Список приглашенных",
+            "callback_data": "user:referrals:list"
+        }
+    ],
+    [
+        {
+            "text": "🏠 Главное меню",
+            "callback_data": "{{ mainMenuCmd }}"
+        }
+    ]
+{{ END }}
+{{ send(TEXT=TEXT, BUTTONS=BUTTONS) }}
+
+
+[%  # Список приглашенных %]
+[% CASE ['user:referrals:list'] %]
+{{
+    limit = 7;
+    offset = (args.0 || 0);
+    referralsArray = ref(user.list_for_api('admin', 1, 'limit', limit, 'offset', offset, 'filter',{"partner_id" = user.id}));
+}}
+{{ TEXT = BLOCK }}
+📃 <b>Список приглашенных пользователей</b>
+
+Всего приглашено: {{ user.referrals_count }}
+{{ END }}
+
+{{ BUTTONS = BLOCK }}
+    {{ FOR item in referralsArray }}
+        [
+            {
+                "text": "{{ item.full_name }}",
+                "callback_data": "user:referrals:list"
+            }
+        ],
+    {{ END }}
+    {{ IF referralsArray.size == limit || offset > 0}}
+    [
+        {{ IF offset > 0 }}
+            {
+                "text": "⬅️ Назад",
+                "callback_data": "user:referrals:list {{ offset - limit }}"
+            },
+        {{ END }}
+        {{ IF referralsArray.size == limit }}
+            {
+                "text": "Ещё ➡️",
+                "callback_data": "user:referrals:list {{ limit + offset }}"
+            }
+        {{ END }}
+    ],
+    {{ END }}
+    [
+        {
+            "text": "🏠 Главное меню",
+            "callback_data": "{{ mainMenuCmd }}"
+        }
+    ]
 {{ END }}
 {{ send(TEXT=TEXT, BUTTONS=BUTTONS) }}
 
@@ -1865,7 +1935,7 @@ ID начисления: {{ data.id }}
 {{ TEXT = BLOCK }}
 💸 Информация о списании №{{ data.withdraw_id }}
 
-Пользователь: {{ userData.full_name }} ({{ data.user_id }})
+Пользователь: {{ userData.full_name }} ({{ userData.user_id }})
 
 Услуга: {{ data.name }} ({{ data.user_service_id }})
 Стоимость: {{ data.cost }}
@@ -1887,7 +1957,7 @@ ID начисления: {{ data.id }}
     [
         {
             "text": "⬅️ Назад",
-            "callback_data": "admin:subs:id {{ data.user_service_id }}"
+            "callback_data": "admin:subs:id {{ data.user_service_id _ ' ' _  userData.user_id }}"
         }
     ],
     [
@@ -1906,6 +1976,250 @@ ID начисления: {{ data.id }}
 [%# ########################################################################################### %]
 [%# ############################### ADMIN PANEL END ########################################### %]
 [%# ########################################################################################### %]
+
+
+[%#
+    Уведомление после создания ключа
+%]
+[% CASE ['notification:create'] %]
+{{
+    USE date;
+    usi = args.0;
+    service = user.services.list_for_api('usi', usi);
+}}
+{{ TEXT = BLOCK }}
+✅ <b>Ключ #{{ service.user_service_id }} - {{ service.name }} активирован</b>
+
+🗓️ <b>Дата окончания</b>: {{ date.format(service.expire, '%d.%m.%Y') }}
+
+<blockquote><b>Для подключения нажмите 🔐 Подключиться</b></blockquote>
+{{ END }}
+
+{{ BUTTONS = BLOCK }}
+    [
+        {
+            "text": "🔐 Подключиться",
+            "callback_data": "user:keys:id {{ service.user_service_id }}"
+        }
+    ],
+    [
+        {
+            "text": "🏠 Главное меню",
+            "callback_data": "{{ mainMenuCmd }}"
+        }
+    ]
+{{ END }}
+{{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
+
+[%#
+    Уведомление после блокировки ключа
+%]
+[% CASE ['notification:block'] %]
+{{
+    USE date;
+    usi = args.0;
+    service = user.services.list_for_api('usi', usi);
+}}
+{{ TEXT = BLOCK }}
+⭕️ <b>Ключ #{{ service.user_service_id }} - {{ service.name }} заблокирован</b>
+{{ END }}
+
+{{ BUTTONS = BLOCK }}
+    [
+        {
+            "text": "🔑 Мои ключи",
+            "callback_data": "user:keys"
+        }
+    ],
+    [
+        {
+            "text": "🏠 Главное меню",
+            "callback_data": "{{ mainMenuCmd }}"
+        }
+    ]
+{{ END }}
+{{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
+
+
+
+[%#
+    Уведомление после активации ключа
+%]
+[% CASE ['notification:activate'] %]
+{{
+    USE date;
+    usi = args.0;
+    service = user.services.list_for_api('usi', usi);
+}}
+{{ TEXT = BLOCK }}
+✅ <b>Ключ #{{ service.user_service_id }} - {{ service.name }} активирован</b>
+
+🗓️ <b>Дата окончания</b>: {{ date.format(service.expire, '%d.%m.%Y') }}
+
+<blockquote>Для подключения нажмите 🔐 Подключиться</blockquote>
+{{ END }}
+
+{{ BUTTONS = BLOCK }}
+    [
+        {
+            "text": "🔐 Подключиться",
+            "callback_data": "user:keys:id {{ service.user_service_id }}"
+        }
+    ],
+    [
+        {
+            "text": "🏠 Главное меню",
+            "callback_data": "{{ mainMenuCmd }}"
+        }
+    ]
+{{ END }}
+{{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
+
+[%#
+    Уведомление после продления ключа
+%]
+[% CASE ['notification:prolongate'] %]
+{{
+    USE date;
+    usi = args.0;
+    service = user.services.list_for_api('usi', usi);
+}}
+{{ TEXT = BLOCK }}
+✅ <b>Ключ #{{ service.user_service_id }} - {{ service.name }} продлён!</b>
+
+🗓️ Дата окончания: {{ date.format(service.expire, '%d.%m.%Y') }}
+
+<blockquote>Для подключения нажмите 🔐 Подключиться</blockquote>
+{{ END }}
+
+{{ BUTTONS = BLOCK }}
+    [
+        {
+            "text": "🔐 Подключиться",
+            "callback_data": "user:keys:id {{ service.user_service_id }}"
+        }
+    ],
+    [
+        {
+            "text": "🏠 Главное меню",
+            "callback_data": "{{ mainMenuCmd }}"
+        }
+    ]
+{{ END }}
+{{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
+
+[%#
+    Уведомление FORECAST
+%]
+[% CASE ['notification:forecast'] %]
+{{
+    USE date;
+    usi = args.0;
+    service = user.services.list_for_api('usi', usi);
+    cost = user.pays.forecast('blocked', 1).total;
+}}
+{{ TEXT = BLOCK }}
+💰 <b>Необходимо оплатить следующие ключи</b>
+
+    {{ FOR item in ref(user.pays.forecast.items('blocked', 1)) }}
+<code>
+🔑 #<b>{{ item.user_service_id }} - {{ item.name }}</b>
+        {{ IF item.expire }}
+🗓️ <b>Дата окончания</b>: {{ date.format(item.expire, '%d.%m.%Y') }}
+        {{ END }}
+</code>
+    {{ END }}
+
+<b>Баланс</b>: {{ user.balance }} руб.
+<b>Баланс необходимо пополнить на </b>{{ cost }} руб.
+{{ END }}
+
+{{ BUTTONS = BLOCK }}
+    [
+        {
+            "text": "➕ Пополнить {{ cost }} руб.",
+            "web_app": {
+                "url": "{{ config.api.url }}/shm/v1/public/tg_payment?format=html"
+            }
+        }
+    ],
+    [
+        {
+            "text": "🔑 Мои ключи",
+            "callback_data": "user:keys"
+        }
+    ]
+{{ END }}
+{{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
+
+
+[%#
+    Уведомление при нехватке средств на балансе
+%]
+[% CASE ['notification:not_enough_money'] %]
+{{
+    cost = user.pays.forecast('blocked',1).total;
+}}
+{{ TEXT = BLOCK }}
+ℹ️ <b>Для активации следующих ключей</b>
+
+    {{ FOR item in ref(user.pays.forecast.items) }}
+    {{ # NEXT IF item.status != 'NOT PAID'# }}
+<code>🔑 #<b>{{ item.user_service_id }} - {{ item.name }}</b></code>
+    {{ END }}
+
+<b>Необходимо оплатить </b>{{ cost }} руб.
+{{ END }}
+
+{{ BUTTONS = BLOCK }}
+    [
+        {
+            "text": "➕ Пополнить {{ cost }} руб.",
+            "web_app": {
+                "url": "{{ config.api.url }}/shm/v1/public/tg_payment?format=html"
+            }
+        }
+    ],
+    [
+        {
+            "text": "🔑 Мои ключи",
+            "callback_data": "user:keys"
+        }
+    ]
+{{ END }}
+{{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
+
+
+[%#
+    Уведомление после пополнения
+%]
+[% CASE ['notification:payment'] %]
+{{ amount = user.pays.last.money }}
+{{ total = user.balance }}
+{{
+    amount = user.pays.last.money;
+}}
+{{ TEXT = BLOCK }}
+✅ <b>Платёж на сумму {{ amount }} руб. зачислен на ваш баланс.</b>
+
+💰 <b>Баланс</b>: {{ user.balance }}
+{{ END }}
+
+{{ BUTTONS = BLOCK }}
+    [
+        {
+            "text": "👤 Личный кабинет",
+            "callback_data": "user:cabinet"
+        }
+    ],
+    [
+        {
+            "text": "🏠 Главное меню",
+            "callback_data": "{{ mainMenuCmd }}"
+        }
+    ]
+{{ END }}
+{{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
 
 
 [% CASE %]
