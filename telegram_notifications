@@ -1,0 +1,29 @@
+{{ SWITCH event_name }}
+
+{{ CASE 'PROLONGATE' }}
+    {{ ret = telegram.bot('telegram_bot', 'notification:prolongate', [us.id]) }}
+
+{{ CASE 'CHANGED' }}
+    {{ IF us.status == 'ACTIVE' && us.status_before  == 'INIT' }}
+        {{ ret = telegram.bot('telegram_bot', 'notification:create', [us.id]) }}
+
+    {{ ELSIF us.status == 'BLOCK' }}
+        {{ ret = telegram.bot('telegram_bot', 'notification:block', [us.id]) }}
+
+    {{ ELSIF us.status == 'ACTIVE' && us.status_before  == 'BLOCK' }}
+        {{ ret = telegram.bot('telegram_bot', 'notification:activate', [us.id]) }}
+
+    {{ END }}
+
+{{ CASE 'NOT_ENOUGH_MONEY' }}
+    {{ ret = telegram.bot('telegram_bot', 'notification:not_enough_money', [us.id]) }}
+
+
+{{ CASE 'PAYMENT' }}
+    {{ ret = telegram.bot('telegram_bot', 'notification:payment', [us.id]) }}
+
+
+{{ CASE 'FORECAST' }}
+    {{ ret = telegram.bot('telegram_bot', 'notification:forecast', [us.id]) }}
+
+{{ END }}
