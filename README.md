@@ -32,7 +32,15 @@ listSubs = true | false
 # Доступ к настройкам бота
 settings = true | false
 }
-``` 
+```
+
+## Уведомления
+<b>Для настройки уведомлений:</b>
+1. Добавьте содержимое файла "telegram_notification" в новый шаблон
+2. Настройте события, указав новый шаблон (события CREATE, BLOCK, ACTIVATE можно заменить одним событием CHANGED)
+
+<b>Отредактировать уведомления можно в шаблоне бота "telegram_bot"</b>
+
 <img width="50%" height="50%"  alt="Json Editor" src="https://github.com/user-attachments/assets/6ce2f8f2-8b80-490a-aecf-1648bc64999e" />
 
 
