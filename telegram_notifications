@@ -27,3 +27,4 @@
     {{ ret = telegram.bot('telegram_bot', 'notification:forecast', [us.id]) }}
 
 {{ END }}
+exit 0
