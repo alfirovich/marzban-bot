@@ -45,6 +45,7 @@
     {{ END }}
 {{ END }}
 
+[%# Check for moderator rights %]
 {{ MACRO checkModeratorRights BLOCK }}
     {{ IF user.settings.role == "moderator" && user.settings.moderate.$right != 1 }}
         {{ sendError(code=403, errtext="⭕️ Доступ запрещён!") }}
@@ -150,45 +151,15 @@
 
 {{ BUTTONS = BLOCK }}
     {{ IF user.settings.role == 'moderator' || user.settings.role == 'admin'; }}
-        [
-            {
-                "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}",
-                "callback_data": "admin:menu"
-            }
-        ],
+        [{ "text": "👨‍💻 Меню {{ menuRole = (user.settings.role == 'admin' ? 'администратора' : 'модератора'); menuRole; }}", "callback_data": "admin:menu" }],
     {{ END }}
-    [
-        {
-            "text": "👤 Личный кабинет",
-            "callback_data": "user:cabinet"
-        }
-    ],
-    [
-        {
-            "text": "🛒 Купить ключ",
-            "callback_data": "price"
-        }
-    ],
+    [{ "text": "👤 Личный кабинет", "callback_data": "user:cabinet" }],
+    [{ "text": "🛒 Купить ключ", "callback_data": "price" }],
     {{ IF user.us.has_services.size }}
-        [
-            {
-                "text": "🔑 Мои ключи",
-                "callback_data": "user:keys"
-            }
-        ],
+        [{ "text": "🔑 Мои ключи", "callback_data": "user:keys" }],
     {{ END }}
-    [
-        {
-            "text": "🤝 Реферальная система",
-            "callback_data": "user:referrals"
-        }
-    ],
-    [
-        {
-            "text": "🛟 Помощь",
-            "callback_data": "help"
-        }
-    ]
+    [{ "text": "🤝 Реферальная система", "callback_data": "user:referrals" }],
+    [{ "text": "🛟 Помощь", "callback_data": "help" }]
 {{ END }}
 {{ send(TEXT=TEXT, BUTTONS=BUTTONS, edit=messageType)  }}
 
@@ -211,26 +182,10 @@ UserID: {{ user.id }}
 {{ END }}
 
 {{ BUTTONS = BLOCK }}
-    [
-        {
-            "text": "✚ Пополнить баланс",
-            "web_app": {
-                "url": "{{ config.api.url }}/shm/v1/public/tg_payment?format=html&user_id={{ user.id }}"
-            }
-        }
-    ],
-    [
-        {
-            "text": "☰ История платежей",
-            "callback_data": "user:pays"
-        }
-    ],
-    [
-        {
-            "text": "🏠 Главное меню",
-            "callback_data": "{{ mainMenuCmd }}"
-        }
-    ]
+    [{ "text": "✚ Пополнить баланс", "web_app": { "url": "{{ config.api.url }}/shm/v1/public/tg_payment?format=html&user_id={{ user.id }}" }}],
+    [{ "text": "🏷️ Ввести промокод", "web_app": { "url": "{{ config.api.url }}/shm/v1/public/promo_webapp?format=html&user_id={{ user.id }}" }}],
+    [{ "text": "☰ История платежей", "callback_data": "user:pays" }],
+    [{ "text": "🏠 Главное меню", "callback_data": "{{ mainMenuCmd }}" }]
 {{ END }}
 {{ send(TEXT=TEXT, BUTTONS=BUTTONS) }}
 
@@ -874,7 +829,7 @@ UserID: {{ user.id }}
         {{ status = (item.block == 0 ? "🟢" : "🔴") }}
         [
             {
-                "text": "{{ status _' '_ item.full_name }} ({{ item.user_id _'-'_ item.login }})",
+                "text": "{{ status _' '_ item.full_name.replace('"', '\"')  }} ({{ item.user_id _'-'_ item.login }})",
                 "callback_data": "admin:users:id {{ item.user_id _' '_ offset }}"
             }
         ],
@@ -921,7 +876,7 @@ UserID: {{ user.id }}
 
 Статус: {{ userStatus = (userData.block == 0 ? "🟢 Активен" : "🔴 Заблокирован"); userStatus; }}
 
-Имя: {{ userData.full_name }}
+Имя: {{ userData.full_name.replace('"', '\"')  }}
 ID: {{ userData.user_id }}
 Telegram: {{ userData.settings.telegram.login }}
 Логин: {{ userData.login }}
@@ -1000,7 +955,7 @@ Telegram: {{ userData.settings.telegram.login }}
     "answerCallbackQuery": {
          "callback_query_id": {{ callback_query.id }},
          "parse_mode":"HTML",
-         "text": "✅ Пользователь {{ userData.full_name }} ({{ userData.user_id }}) {{ status = (userData.block == 1 ? "🔴 заблокирован" : "🟢 активирован"); status; }}",
+         "text": "✅ Пользователь {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }}) {{ status = (userData.block == 1 ? "🔴 заблокирован" : "🟢 активирован"); status; }}",
          "show_alert": true
      }
 },
@@ -1023,7 +978,7 @@ Telegram: {{ userData.settings.telegram.login }}
 {{ TEXT = BLOCK }}
 🔐 Управление подписками
 
-Имя: {{ userData.full_name }}
+Имя: {{ userData.full_name.replace('"', '\"')  }}
 ID: {{ userData.user_id }}
 Telegram: {{ userData.settings.telegram.login }}
 Логин: {{ userData.login }}
@@ -1095,7 +1050,7 @@ Telegram: {{ userData.settings.telegram.login }}
     servicesArray = ref(service.list_for_api).nsort('service_id');
 }}
 {{ TEXT = BLOCK }}
-➕ Выберите услугу для создания пользователю {{ userData.full_name }} ({{ userData.user_id }})
+➕ Выберите услугу для создания пользователю {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 {{ END }}
 
 {{ BUTTONS = BLOCK }}
@@ -1131,7 +1086,7 @@ Telegram: {{ userData.settings.telegram.login }}
     servicesArray = ref(service.list_for_api).nsort('service_id');
 }}
 {{ TEXT = BLOCK }}
-➕ Выберите услугу с 0 стоимостью для создания пользователю {{ userData.full_name }} ({{ userData.user_id }})
+➕ Выберите услугу с 0 стоимостью для создания пользователю {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 {{ END }}
 
 {{ BUTTONS = BLOCK }}
@@ -1172,7 +1127,7 @@ Telegram: {{ userData.settings.telegram.login }}
 {{ ret = userData.us.create('service_id' = createService.service_id, 'check_allow_to_order' = 0) }}
 {{ END }}
 {{ TEXT = BLOCK }}
-✅ Подписка {{ createService.name }} успешно добавлена пользователю {{ userData.full_name }} ({{ userData.user_id }})
+✅ Подписка {{ createService.name }} успешно добавлена пользователю {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 {{ END }}
 {
     "answerCallbackQuery": {
@@ -1196,14 +1151,16 @@ Telegram: {{ userData.settings.telegram.login }}
         # 0 - ID of user service id 
         # 1 - ID of user
     # Variables:
+    USE date;
     userData = user.id(args.1);
     userService = userData.us.id(args.0);
     userServiceData = service.id(userService.service_id);
     userServiceNext = service.id(userService.next);
     userSubUrl = (userData.storage.read('name', 'vpn_mrzb_'_ userService.user_service_id).subscription_url || "https://notfound.com");
+    subData = http.get(userSubUrl _'/info');
 }}
 {{ TEXT = BLOCK }}
-🔐 Подписка {{ userServiceData.name }} пользователя {{ userData.full_name }} ({{ userData.user_id }})
+🔐 Подписка {{ userServiceData.name }} пользователя {{ userData.full_name.replace('"', '\"') }} ({{ userData.user_id }})
 
 ID: {{ userService.user_service_id }}
 ID списания: {{ userService.withdraw_id }}
@@ -1211,6 +1168,8 @@ ID списания: {{ userService.withdraw_id }}
 Создана: {{ userService.created }}
 Заканчивается: {{ userService.expire }}
 Следующий тариф: {{ userServiceNext.name }}
+
+Последний онлайн: {{ subData.online_at ? date.format(subData.online_at, '%d.%m.%Y %R') : 'нет информации' }}
 
 {{ END }}
 
@@ -1294,7 +1253,7 @@ ID списания: {{ userService.withdraw_id }}
     userServiceData = service.id(userService.service_id);
 }}
 {{ TEXT = BLOCK }}
-⎘ Выберите тариф на изменение для подписки {{ userServiceData.name }} пользователя {{ userData.full_name }} ({{ userData.user_id }})
+⎘ Выберите тариф на изменение для подписки {{ userServiceData.name }} пользователя {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 
 {{ END }}
 
@@ -1336,7 +1295,7 @@ ID списания: {{ userService.withdraw_id }}
     userServiceNext = service.id(nextService);
 }}
 {{ TEXT = BLOCK }}
-✅ Тариф для подписки {{ serviceData.name }} ({{ data.user_service_id }}) пользователя {{ userData.full_name }} ({{ userData.user_id }}) изменён на {{ userServiceNext.name }}
+✅ Тариф для подписки {{ serviceData.name }} ({{ data.user_service_id }}) пользователя {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }}) изменён на {{ userServiceNext.name }}
 {{ END }}
 {
     "answerCallbackQuery": {
@@ -1364,7 +1323,7 @@ ID списания: {{ userService.withdraw_id }}
     userServiceNext = service.id(userService.next);
 }}
 {{ TEXT = BLOCK }}
-⎘ Выберите следующий тариф для подписки {{ userServiceData.name }} пользователя {{ userData.full_name }} ({{ userData.user_id }})
+⎘ Выберите следующий тариф для подписки {{ userServiceData.name }} пользователя {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 
 {{ IF userService.next != userService.service_id || userService.next != 0 }}
 Следующий тариф: {{ userServiceNext.name }} ({{ userService.next }})
@@ -1410,7 +1369,7 @@ ID списания: {{ userService.withdraw_id }}
 }}
 {{ ret = userData.us.id(data.user_service_id).set("next", nextService) }}
 {{ TEXT = BLOCK }}
-✅ Следующий тариф для подписки {{ serviceData.name }} ({{ data.user_service_id }}) пользователя {{ userData.full_name }} ({{ userData.user_id }}) изменён на {{ userServiceNext.name }}
+✅ Следующий тариф для подписки {{ serviceData.name }} ({{ data.user_service_id }}) пользователя {{ userData.full_name.replace('"', '\"') }} ({{ userData.user_id }}) изменён на {{ userServiceNext.name }}
 {{ END }}
 {
     "answerCallbackQuery": {
@@ -1444,7 +1403,7 @@ ID списания: {{ userService.withdraw_id }}
     "answerCallbackQuery": {
          "callback_query_id": {{ callback_query.id }},
          "parse_mode":"HTML",
-         "text": "✅ Услуга {{ serviceData.name }} ({{ data.user_service_id }}) пользователя {{ userData.full_name }} ({{ userData.user_id }}) {{ status = (data.status == 'ACTIVE' ? "🔴 заблокирована" : "🟢 активирована"); status; }}",
+         "text": "✅ Услуга {{ serviceData.name }} ({{ data.user_service_id }}) пользователя {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }}) {{ status = (data.status == 'ACTIVE' ? "🔴 заблокирована" : "🟢 активирована"); status; }}",
         "show_alert": true
      }
 },
@@ -1470,7 +1429,7 @@ ID списания: {{ userService.withdraw_id }}
     "answerCallbackQuery": {
          "callback_query_id": {{ callback_query.id }},
          "parse_mode":"HTML",
-         "text": "❌ Услуга {{ serviceData.name }} ({{ data.user_service_id }}) пользователя {{ userData.full_name }} ({{ userData.user_id }}) удалена!",
+         "text": "❌ Услуга {{ serviceData.name }} ({{ data.user_service_id }}) пользователя {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }}) удалена!",
         "show_alert": true
      }
 },
@@ -1490,7 +1449,7 @@ ID списания: {{ userService.withdraw_id }}
     userPays = ref(userData.pays.list_for_api('limit', limit, 'offset', offset ));
 }}
 {{ TEXT = BLOCK }}
-👨‍💻 Управление платежами пользователя {{ userData.full_name }} ({{ userData.user_id }})
+👨‍💻 Управление платежами пользователя {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 
 {{ END }}
 
@@ -1555,7 +1514,7 @@ ID списания: {{ userService.withdraw_id }}
     userData = user.id(userPay.user_id);
 }}
 {{ TEXT = BLOCK }}
-💸 Информация о платеже ID {{ userPay.id }} пользователя {{ userData.full_name }} ({{ userData.user_id }})
+💸 Информация о платеже ID {{ userPay.id }} пользователя {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 
 Дата платежа: {{ userPay.date }}
 Платежная система: {{ userPay.pay_system_id }}
@@ -1620,7 +1579,7 @@ ID кошелька: {{ payMethod.account_number }}
     userData = user.id(args.0);
 }}
 {{ TEXT = BLOCK }}
-💸 Выберите сумму, которую хотите начислить пользователю {{ userData.full_name }} ({{ userData.user_id }})
+💸 Выберите сумму, которую хотите начислить пользователю {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 Текущий баланс {{ userData.balance }} руб.
 
 {{ END }}
@@ -1686,7 +1645,7 @@ ID кошелька: {{ payMethod.account_number }}
     "answerCallbackQuery": {
          "callback_query_id": {{ callback_query.id }},
          "parse_mode":"HTML",
-         "text": "Баланс пользователя {{ userData.full_name }} ({{ userData.user_id }}) пополнен на {{ amount }} руб. Текущий баланс - {{ userData.balance }}",
+         "text": "Баланс пользователя {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }}) пополнен на {{ amount }} руб. Текущий баланс - {{ userData.balance }}",
          "show_alert": true
      }
 },
@@ -1707,7 +1666,7 @@ ID кошелька: {{ payMethod.account_number }}
     userBonuses = ref(bonus.list_for_api('admin', 1, 'limit', limit, 'offset', offset, 'filter', {"user_id" = userData.user_id}));
 }}
 {{ TEXT = BLOCK }}
-👨‍💻 Управление бонусами пользователя {{ userData.full_name }} ({{ userData.user_id }})
+👨‍💻 Управление бонусами пользователя {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 
 Баланс бонусов: {{ userData.get_bonus }} руб.
 {{ END }}
@@ -1772,14 +1731,14 @@ ID кошелька: {{ payMethod.account_number }}
     partnerData = user.id(data.comment.from_user_id)
 }}
 {{ TEXT = BLOCK }}
-💸 Информация о начислении бонусов ID {{ data.id }} пользователю {{ userData.full_name }} ({{ userData.user_id }})
+💸 Информация о начислении бонусов ID {{ data.id }} пользователю {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 
 ID начисления: {{ data.id }}
 Дата начисления: {{ data.date }}
 Сумма начисления: {{ data.bonus }} руб.
 
 {{ IF data.comment.from_user_id }}
-<blockquote>{{ data.comment.percent }}% от {{ partnerData.full_name }} ({{ partnerData.user_id }})</blockquote>
+<blockquote>{{ data.comment.percent }}% от {{ userData.full_name.replace('"', '\"')  }} ({{ partnerData.user_id }})</blockquote>
 {{ END }}
 
 {{ IF data.comment.msg }}
@@ -1814,7 +1773,7 @@ ID начисления: {{ data.id }}
     userData = user.id(args.0);
 }}
 {{ TEXT = BLOCK }}
-💸 Выберите кол-во бонусов, которые хотите начислить пользователю {{ userData.full_name }} ({{ userData.user_id }})
+💸 Выберите кол-во бонусов, которые хотите начислить пользователю {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 Текущий баланс бонусов {{ userData.get_bonus }} руб.
 
 {{ END }}
@@ -1916,7 +1875,7 @@ ID начисления: {{ data.id }}
     "answerCallbackQuery": {
          "callback_query_id": {{ callback_query.id }},
          "parse_mode":"HTML",
-         "text": "Баланс бонусов пользователя {{ userData.full_name }} ({{ userData.user_id }}) пополнен на {{ amount }} руб. Текущий баланс - {{ userData.get_bonus }}",
+         "text": "Баланс бонусов пользователя {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }}) пополнен на {{ amount }} руб. Текущий баланс - {{ userData.get_bonus }}",
          "show_alert": true
      }
 },
@@ -1935,7 +1894,7 @@ ID начисления: {{ data.id }}
 {{ TEXT = BLOCK }}
 💸 Информация о списании №{{ data.withdraw_id }}
 
-Пользователь: {{ userData.full_name }} ({{ userData.user_id }})
+Пользователь: {{ userData.full_name.replace('"', '\"')  }} ({{ userData.user_id }})
 
 Услуга: {{ data.name }} ({{ data.user_service_id }})
 Стоимость: {{ data.cost }}
