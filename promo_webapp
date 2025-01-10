@@ -174,7 +174,8 @@
 
         submitPromoCode(userId) {
             const promoCode = document.getElementById('promo_code').value;
-            const xhrURL = new URL('{{config.api.url}}/shm/v1/public/{{tpl.id}}');
+            const baseUrl = window.location.href;
+            const xhrURL = new URL(`${baseUrl}`);
             xhrURL.searchParams.append('apply', 1);
             xhrURL.searchParams.append('uid', userId);
             xhrURL.searchParams.append('code', promoCode);
