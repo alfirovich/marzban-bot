@@ -1,0 +1,224 @@
+{{ IF request.params.apply == 1 }}
+    {{ IF user.switch( request.params.uid ).id }}
+        {{ IF promo.apply( request.params.code ) }}
+            200
+        {{ ELSE }}
+            400
+        {{ END }}
+    {{ ELSE }}
+        401
+    {{ END }}
+{{ ELSE }}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="format-detection" content="telephone=no"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="robots" content="noindex,nofollow"/>
+    <title>Ввод промокода</title>
+    <script src="https://telegram.org/js/telegram-web-app.js?56"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            min-height: 100vh;
+            background-color: var(--bg-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        :root {
+            --bg-color: #f9f9f9;
+            --text-color: #333;
+            --container-bg: white;
+            --button-bg: #007bff;
+            --button-hover-bg: #0056b3;
+            --input-bg: white;
+            --input-border-color: #ccc;
+            --input-focus-border-color: #007bff;
+            --border-radius: 10px;
+            --input-text-color: #333;
+            --header-color: #007bff; /* Цвет заголовков */
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #2c2f33;
+                --text-color: #ffffff;
+                --container-bg: #23272a;
+                --button-bg: #7289da;
+                --button-hover-bg: #5b6eae;
+                --input-bg: #444;
+                --input-border-color: #555;
+                --input-focus-border-color: #7289da;
+                --input-text-color: #ffffff;
+                --header-color: #ffffff; /* Цвет заголовков в темной теме */
+            }
+        }
+
+        .main-container {
+    background: var(--container-bg);
+    border-radius: var(--border-radius);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+        h2 {
+            color: var(--header-color);
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            border-radius: var(--border-radius);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border-color);
+            padding: 10px;
+            width: 100%;
+            margin: 10px 0;
+            font-size: 16px;
+            color: var(--input-text-color);
+            transition: border 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--input-focus-border-color);
+            outline: none;
+        }
+
+        button {
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 12px;
+            background-color: var(--button-bg);
+            color: white;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: var(--button-hover-bg);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="main-container" onclick="closeKeyboard(event)">
+    <h2>Введите промокод</h2>
+    <input
+        type="text"
+        id="promo_code"
+        placeholder="Введите ваш промокод"
+        required
+    />
+   
+</div>
+
+<script type="application/javascript">
+    const promoApp = {
+        initData      : Telegram.WebApp.initData || '',
+        initDataUnsafe: Telegram.WebApp.initDataUnsafe || {},
+        MainButton: Telegram.WebApp.MainButton,
+        SecondaryButton: Telegram.WebApp.SecondaryButton,
+
+        init: function(options) {
+            document.body.style.visibility = '';
+            this.getUserId;
+            Telegram.WebApp.ready();
+
+            Telegram.WebApp.MainButton.setParams({
+                text: 'Подтвердить',
+                has_shine_effect: true,
+                is_visible: true
+            }).onClick(promoApp.send);
+
+            Telegram.WebApp.SecondaryButton.setParams({
+                text: 'Отменить',
+                is_visible: true
+            }).onClick(promoApp.close);
+        },
+
+        expand() {
+            Telegram.WebApp.expand();
+        },
+        close() {
+            Telegram.WebApp.close();
+        },
+
+        getUserId() {
+            let urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('user_id');
+        },
+
+        send() {
+            const userId = promoApp.getUserId();
+            promoApp.submitPromoCode(userId);
+        },
+
+        submitPromoCode(userId) {
+            const promoCode = document.getElementById('promo_code').value;
+            const xhrURL = new URL('{{config.api.url}}/shm/v1/public/{{tpl.id}}');
+            xhrURL.searchParams.append('apply', 1);
+            xhrURL.searchParams.append('uid', userId);
+            xhrURL.searchParams.append('code', promoCode);
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', xhrURL);
+            xhr.onload = function() {
+                // Обработка ответа как текст
+                const responseText = xhr.responseText.trim();
+                
+                // Проверяем содержимое ответа
+                switch (responseText) {
+                    case '200':
+                        Telegram.WebApp.showAlert("✅ Промокод применен успешно.");
+                        Telegram.WebApp.close();
+                        break;
+                    case '404':
+                        Telegram.WebApp.showAlert("⭕️ Промокод не найден.");
+                        break;
+                    case '401':
+                        Telegram.WebApp.showAlert("Пользователь не найден.");
+                        Telegram.WebApp.close();
+                        break;
+                    default:
+                        Telegram.WebApp.showAlert("Неизвестная ошибка: " + responseText);
+                        Telegram.WebApp.close();
+                }
+            };
+            xhr.onerror = function() {
+                Telegram.WebApp.showAlert("Ошибка соединения");
+            };
+            xhr.send();
+        }
+    };
+
+    function closeKeyboard(event) {
+        const target = event.target;
+        if (target.tagName !== "INPUT") {
+            document.activeElement.blur();
+        }
+    };
+
+
+    promoApp.init();
+</script>
+</body>
+</html>
+{{ END }}
