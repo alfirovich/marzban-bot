@@ -153,6 +153,28 @@
                 text: 'Отменить',
                 is_visible: true
             }).onClick(promoApp.close);
+
+            let urlParams = new URLSearchParams(window.location.search);
+            let user_id = urlParams.get('user_id');
+
+            let xhrURL = new URL('{{ config.api.url }}/shm/v1/telegram/webapp/auth');
+            xhrURL.searchParams.set('uid', user_id);
+            xhrURL.searchParams.set('initData', Telegram.WebApp.initData);
+
+            let xhr = new XMLHttpRequest();
+            xhr.open('GET', xhrURL);
+            xhr.send();
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    promoApp.session_id = JSON.parse(xhr.response).session_id;
+                    Telegram.WebApp.MainButton.hideProgress();
+                    Telegram.WebApp.expand();
+                } else {
+                    Telegram.WebApp.showAlert("Ошибка авторизации");
+                    Telegram.WebApp.close();
+                }
+            };
+            
         },
 
         expand() {
@@ -181,6 +203,7 @@
             xhrURL.searchParams.append('code', promoCode);
             const xhr = new XMLHttpRequest();
             xhr.open('GET', xhrURL);
+            xhr.setRequestHeader('session-id', promoApp.session_id);
             xhr.onload = function() {
                 // Обработка ответа как текст
                 const responseText = xhr.responseText.trim();
