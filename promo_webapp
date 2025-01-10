@@ -3,7 +3,7 @@
         {{ IF promo.apply( request.params.code ) }}
             200
         {{ ELSE }}
-            400
+            404
         {{ END }}
     {{ ELSE }}
         401
