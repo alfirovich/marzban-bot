@@ -1,7 +1,12 @@
 <% TAGS [% %] %>
 
 {{ MACRO getBotUsername BLOCK }}
-    {{ getUsername = http.post("https://api.telegram.org/bot${tpl.settings.telegram.token}/getMe").result.username; getUsername; }}
+    {{ 
+        token = tpl.settings.telegram.token || config.telegram.token;
+        getUsername = http.post("https://api.telegram.org/bot${token}/getMe").result.username; 
+        getUsername; 
+
+    }}
 {{ END }}
 
 {{
@@ -63,6 +68,12 @@
         (edit == 1) ? 'editMessageText' :
         (!edit) ? 'sendMessage' :
         defaultMessageType;
+
+    ret = user.set_settings({'state' => ''});
+    IF user.settings.bot.reqPromo;
+        delete(msgID=[user.settings.bot.reqPromo]);
+        ret = user.set_settings({'bot' => {'reqPromo' => ''} });
+    END;
 }}
 
 
@@ -105,12 +116,23 @@
             "parse_mode": "HTML",
             "text": "{{ TEXT.replace('\n','\n') }}",
             "reply_markup": {
+            {{ IF force == 1 }}
+                "force_reply": true,
+            {{ END }}
+            {{ IF BUTTONS }}
                 "inline_keyboard": [
                     {{ BUTTONS }}
                 ]
+            {{ END }}
             }
         }
     }
+{{ END }}
+
+{{ MACRO delete BLOCK }}
+{
+    "deleteMessages": { "chat_id": {{ user.settings.telegram.chat_id }}, "message_ids": {{ toJson(msgID) }} }
+},
 {{ END }}
 
 [%# MAIN LOGIC # %]
@@ -183,7 +205,7 @@ UserID: {{ user.id }}
 
 {{ BUTTONS = BLOCK }}
     [{ "text": "✚ Пополнить баланс", "web_app": { "url": "{{ config.api.url }}/shm/v1/public/tg_payment?format=html&user_id={{ user.id }}" }}],
-    [{ "text": "🏷️ Ввести промокод", "web_app": { "url": "{{ config.api.url }}/shm/v1/public/promo_webapp?format=html&user_id={{ user.id }}" }}],
+    [{ "text": "🏷️ Ввести промокод", "callback_data": "promocode" }, { "text": "🏷️ Web", "web_app": { "url": "{{ config.api.url }}/shm/v1/public/promo_webapp?format=html&user_id={{ user.id }}" }}],
     [{ "text": "☰ История платежей", "callback_data": "user:pays" }],
     [{ "text": "🏠 Главное меню", "callback_data": "{{ mainMenuCmd }}" }]
 {{ END }}
@@ -1615,6 +1637,12 @@ ID кошелька: {{ payMethod.account_number }}
     ],
     [
         {
+            "text": "Ввести свою сумму",
+            "callback_data": "admin:pays:add:manual {{ userData.user_id }}"
+        }
+    ],
+    [
+        {
             "text": "⬅️ Назад",
             "callback_data": "admin:users:id:pays {{ userData.user_id }}"
         }
@@ -1631,6 +1659,24 @@ ID кошелька: {{ payMethod.account_number }}
     ]
 {{ END }}
 {{ send(TEXT=TEXT, BUTTONS=BUTTONS, admin=1) }}
+
+
+[%#
+    Ручное добавление баланса
+%]
+[% CASE ['admin:pays:add:manual'] %]
+{{ checkModeratorRights(right="addPays") }}
+{{
+    userData = user.id(args.0);
+
+    ret = user.set_settings({'state' => 'awaiting_amount'});
+    ret = user.set_settings({'bot' => {'switchUser' => userData.user_id} });
+}}
+
+{{ TEXT = BLOCK }}
+💬 Введите сумму для пополнения баланса пользователя {{ userData.full_name.replace('"', '\"') }}
+{{ END }}
+{{ notification(TEXT=TEXT, force=1) }}
 
 
 [% CASE ['admin:pays:add:confirm'] %]
@@ -2181,8 +2227,139 @@ ID начисления: {{ data.id }}
 {{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
 
 
-[% CASE %]
+[%#
+    Уведомление после применения промокода
+%]
+[% CASE ['notification:promo'] %]
+
+{{ TEXT = BLOCK }}
+✅ <b>Промокод {{ args.0 }} успешно применён!</b>
+{{ END }}
+
+{{ BUTTONS = BLOCK }}
+    [
+        {
+            "text": "👤 Личный кабинет",
+            "callback_data": "user:cabinet"
+        }
+    ],
+    [
+        {
+            "text": "🏠 Главное меню",
+            "callback_data": "{{ mainMenuCmd }}"
+        }
+    ]
+{{ END }}
+{{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
+
+
+[%#
+    Применение промокода
+%]
+[% CASE ['promocode'] %]
+{{
+    # Устанавливаем переменную
+    ret = user.set_settings({'state' => 'awaiting_promocode'});
+    IF user.settings.bot.reqPromo;
+        temp = user.settings.bot.reqPromo + 1;
+        delete(msgID=[temp, user.settings.bot.reqPromo, message.message_id]);
+        ret = user.set_settings({'bot' => {'reqPromo' => message.message_id} });
+    ELSE;
+        ret = user.set_settings({'bot' => {'reqPromo' => message.message_id} });
+    END;
+}}
+{{ TEXT = BLOCK }}
+💬 <b>Введите ваш промокод:</b>
+{{ END }}
+
+{{ notification(TEXT=TEXT, force=1) }}
+
+
+[% CASE DEFAULT %]
+
+
+{{ IF user.settings.state == 'awaiting_promocode' }}
+{{
+    IF user.settings.bot.reqPromo;
+        temp = user.settings.bot.reqPromo + 1;
+        temp2 = user.settings.bot.reqPromo - 1;
+        delete(msgID=[temp, temp2, user.settings.bot.reqPromo, message.message_id]);
+        ret = user.set_settings({'bot' => {'reqPromo' => message.message_id} });
+    END;
+
+    # Проверяем, что введено
+    IF message.text.match('^[a-zA-Z0-9_-]+$');
+        promocode = message.text;
+        ret = user.set_settings({'state' => ''});
+        
+        IF promo.apply(promocode);
+            TEXT = "✅ <b>Промокод $promocode применён!</b>";
+        ELSE;
+            TEXT = "⭕️ <b>Промокод $promocode не найден!</b>";
+        END;
+
+    ELSE;
+        TEXT = "❌ <b>Ошибка:</b> Промокод может содержать только буквы, цифры, тире (-) и нижнее подчёркивание (_).";
+    END;
+}}
+
+{{ BUTTONS = BLOCK }}
+    [
+        {
+            "text": "🏷️ Ввести ещё",
+            "callback_data": "promocode"
+        }
+    ],
+    [
+        {
+            "text": "🏠 Главное меню",
+            "callback_data": "{{ mainMenuCmd }}"
+        }
+    ]
+{{ END }}
+{{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
+
+
+{{ ELSIF user.settings.state == 'awaiting_amount' AND user.settings.bot.switchUser }}
+    {{
+        userData = user.id(user.settings.bot.switchUser);
+        IF message.text.match('^-?\d+(\.\d+)?$');
+            amount = message.text;
+
+            IF (ret = userData.payment('money', amount, 'pay_system_id', 'manual'));
+                TEXT = "✅ <b>Баланс пользователя $userData.user_id пополнен на $amount руб.</b>\nТекущий баланс: $userData.balance руб.";
+            ELSE;
+                TEXT = "⭕️ Ошибка пополнения. Повторите попытку.";
+            END;
+
+            ret = user.set_settings({'state' => ''});
+            ret = user.set_settings({'bot' => {'switchUser' => ''} });
+        ELSE;
+            TEXT = "⭕️ Ошибка пополнения. Повторите попытку.";
+        END;
+    }}
+{{ BUTTONS = BLOCK }}
+[
+    {
+        "text": "ℹ️ Информация о пользователе",
+        "callback_data": "admin:users:id {{ userData.user_id }}"
+    }
+],
+[
+    {
+        "text": "🏠 Главное меню",
+        "callback_data": "{{ mainMenuCmd }}"
+    }
+]
+{{ END }}
+{{ notification(TEXT=TEXT, BUTTONS=BUTTONS) }}
+{{ ELSE }}
+    {{ 
+        ret = user.set_settings({'bot' => {'switchUser' => ''} });
+        ret = user.set_settings({'state' => ''});
+    }}
 {
     "deleteMessage": { "message_id": {{ message.message_id }} }
 }
+{{ END }}
 [% END %]
