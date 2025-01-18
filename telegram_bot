@@ -74,9 +74,9 @@
             (cmd == '/start') ? 'sendMessage' :
             (cmd == 'menu' && mainMenuCmd == 'menu') ? 'editMessageText' :
             (mainMenuCmd == 'start' || cmd == 'start') ? 'sendMessage' :
-            (defaultMessageType == 'editMessageText' ) ? 'editMessageText' :
+            (edit == 0) ? 'sendMessage' :
             (edit == 1) ? 'editMessageText' :
-            (!edit) ? 'sendMessage' :
+            (defaultMessageType == 'editMessageText' ) ? 'editMessageText' :
             defaultMessageType;
 
         # Clear state
@@ -952,7 +952,7 @@ Telegram: {{ userData.settings.telegram.login }}
         }
     ]
 {{ END }}
-{{ send(TEXT=TEXT, BUTTONS=BUTTONS, admin=1) }}
+{{ send(TEXT=TEXT, BUTTONS=BUTTONS, admin=1, edit=0) }}
 
 
 [% CASE ['admin:users:block'] %]
@@ -2391,9 +2391,7 @@ ID начисления: {{ data.id }}
     {{ 
         ret = user.set_settings({'bot' => {'switchUser' => ''} });
         ret = user.set_settings({'state' => ''});
+        delete(msgID=[message.message_id]);
     }}
-{
-    "deleteMessage": { "message_id": {{ message.message_id }} }
-}
 {{ END }}
 [% END %]
