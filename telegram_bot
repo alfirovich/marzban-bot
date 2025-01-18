@@ -82,12 +82,12 @@
         # Clear state
         ret = user.set_settings({'state' => ''});
 
-        IF user.settings.bot.reqPromo;
+        IF user.settings.bot.reqPromo > 0;
             delete(msgID=[user.settings.bot.reqPromo]);
             ret = user.set_settings({'bot' => {'reqPromo' => ''} });
         END;
 
-        IF (cmd != '/start' && (!edit || edit == 0) && messageType != 'editMessageText' ) && cmd != 'sendMessage';
+        IF (cmd != '/start' && !edit && messageType != 'editMessageText' );
             delete(msgID=[message.message_id]);
         END; 
         
