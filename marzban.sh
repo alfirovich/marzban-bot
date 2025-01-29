@@ -72,7 +72,7 @@ case $EVENT in
         log "Создание пользователя..."
         get_token
         {{ service = service.id(us.service_id) }}
-        expire_datetwentyonemin=$(date +'%Y-%m-%d %T' --date="{{ us.expire }} UTC - 3 hours + 21 minutes")
+        expire_datetwentyonemin=$(date +'%Y-%m-%d %T' --date="{{ us.expire }} UTC + 21 minutes")
         EXPIRE_DATE=$(date --date="$expire_datetwentyonemin" '+%s')
 
         USER_NOTE="{{ user.login }}, https://t.me/{{ user.settings.telegram.login }}, service_id: {{ us.user_service_id }}"
@@ -127,7 +127,7 @@ EOF
     ACTIVATE|BLOCK|PROLONGATE|CHANGED)
         log "Обработка события: $EVENT..."
         get_token
-        expire_datetwentyonemin=$(date +'%Y-%m-%d %T' --date="{{ us.expire }} UTC - 3 hours + 21 minutes")
+        expire_datetwentyonemin=$(date +'%Y-%m-%d %T' --date="{{ us.expire }} UTC + 21 minutes")
         EXPIRE_DATE=$(date --date="$expire_datetwentyonemin" '+%s')
 
         USERNAME="{{ us.settings.data.username }}"
