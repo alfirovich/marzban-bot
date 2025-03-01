@@ -1,0 +1,28 @@
+{{
+    IF request.params.login AND request.params.format == 'json';
+        ret = ref(user.list_for_api('admin', 1, 'limit', 0, 'filter', {"login" = request.params.login} ));
+        IF (ret.size > 0);
+
+            selectUser = user.id(ret.first.user_id);
+            servicesUser = ref(selectUser.services.list_for_api('limit', 0));
+            response = toJson(
+                'services' => servicesUser,
+                'user' => ret.first
+            );
+            response;
+        
+        ELSE;
+
+            response = toJson(
+                'response' = 'No data'
+            );
+            response;
+        END;
+    ELSE;
+
+        response = toJson(
+                    'response' = 'No data'
+        );
+        response;
+    END;
+}}
