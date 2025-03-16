@@ -90,7 +90,9 @@ case $EVENT in
                 "data_limit_reset_strategy": "month",
                 "status": "active",
                 "note": "$USER_NOTE",
-                "inbounds": {{ toJson(service.settings.inbounds) }}
+                "inbounds": {
+                    "vless": {{ toJson(service.settings.inbounds) }}
+                }
             }
 EOF
             )
